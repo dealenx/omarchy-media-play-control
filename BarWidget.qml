@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import qs.Commons
 import qs.Commons as Commons
@@ -15,6 +16,9 @@ BarWidget {
 
   readonly property var mediaService: serviceSource.service
   readonly property var activePlayer: mediaService ? mediaService.activePlayer : null
+  // Playback state, read once so the artwork's highlight and its spin agree
+  // on what "playing" means.
+  readonly property bool playing: !!activePlayer && activePlayer.isPlaying === true
   readonly property bool hasMedia: mediaService ? mediaService.hasMedia : false
   readonly property string title: mediaService ? mediaService.title : ""
   readonly property string artist: mediaService ? mediaService.artist : ""
@@ -138,6 +142,36 @@ BarWidget {
   // broken, not that the track restarted.
   property int zeroReadings: 0
 
+  // ---- Artwork ------------------------------------------------------------
+  // The bar hides itself for a fullscreen window; a spin nobody can see is
+  // wasted frames. The trusted bar exposes `barHidden` directly, while the
+  // restricted PluginBarApi reaches the same flag through `shell.bar`.
+  readonly property bool barHidden: {
+    if (!bar) return false
+    if (bar.barHidden !== undefined) return bar.barHidden === true
+    return !!(bar.shell && bar.shell.bar && bar.shell.bar.barHidden === true)
+  }
+  // The cover turns only while it is on screen and the track is playing.
+  // `Style.reduceMotion` is the shell-wide switch behind
+  // `omarchy toggle animations`.
+  readonly property bool artSpinning: playing && visible && albumArtVisible
+    && !barHidden && !Style.reduceMotion
+  // The turning item itself, for the capture host: reading `disc.rotation`
+  // through a bound property would re-evaluate a binding on every frame.
+  readonly property var artDisc: disc
+  // Why the spin is or is not running, for the log line below. Reads the
+  // first gate that fails, in the same order as `artSpinning`. A function,
+  // not a property: inside `onArtSpinningChanged` a sibling binding that
+  // depends on `playing` still holds the previous value, which logged every
+  // transition with the reason it had just left.
+  function artSpinReason() {
+    if (!playing) return "paused"
+    if (!visible || !albumArtVisible) return "hidden"
+    if (barHidden) return "bar hidden"
+    if (Style.reduceMotion) return "reduced motion"
+    return "playing"
+  }
+
   // The widget stays on the bar with no media so its slot does not jump
   // around; "Hide when nothing plays" brings back the upstream behavior.
   visible: (hasMedia || !hideWhenIdle) && !hiddenByLayout
@@ -181,7 +215,15 @@ BarWidget {
     fallback: Component { Service { ipcEnabled: false } }
   }
 
-  Component.onCompleted: console.debug("[media-play-control] moduleName:", root.moduleName)
+  Component.onCompleted: {
+    console.debug("[media-play-control] moduleName:", root.moduleName)
+    console.debug("[media-play-control.art]", "cover", root.artSource ? "present" : "missing",
+      "size", root.artSize)
+  }
+
+  onArtSpinningChanged: console.debug("[media-play-control.art]", "spin",
+    artSpinning ? "on" : "off", "angle", artDisc ? Math.round(artDisc.rotation) : 0,
+    "reason", artSpinReason())
 
   function previous() {
     if (mediaService) mediaService.previous()
@@ -557,8 +599,8 @@ BarWidget {
     }
 
     TransportButton {
-      iconText: root.activePlayer && root.activePlayer.isPlaying ? "󰏤" : "󰐊"
-      tooltip: root.activePlayer && root.activePlayer.isPlaying ? "Pause" : "Play"
+      iconText: root.playing ? "󰏤" : "󰐊"
+      tooltip: root.playing ? "Pause" : "Play"
       enabled: !!(root.activePlayer && (root.activePlayer.canPlay || root.activePlayer.canPause || root.activePlayer.canTogglePlaying))
       visible: root.playPauseVisible
       onTriggered: root.playPause()
@@ -596,29 +638,114 @@ BarWidget {
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: parent.left
 
+        // A soft accent halo behind the disc, only while the track plays. It
+        // reaches 2px past the artwork into the row's 4px gaps, so it never
+        // touches its neighbours.
         Rectangle {
           anchors.fill: parent
-          radius: Style.space(3)
+          anchors.margins: -Style.space(2)
+          antialiasing: true
+          radius: width / 2
+          color: Commons.Util.alpha(Commons.Color.accent, 0.16)
+          visible: root.playing
+        }
+
+        // The disc's own ground: what shows through a transparent or missing
+        // cover, and the ring's backing where the cover is opaque.
+        Rectangle {
+          anchors.fill: parent
+          antialiasing: true
+          radius: width / 2
           color: root.bar ? Style.normalFillFor(root.bar.barForeground, Commons.Color.accent) : "transparent"
         }
 
-        Image {
-          id: cover
+        // The cover, cut to a circle by a mask rather than by clipping a
+        // square: a rotating square inside a clipped circle loses its corners,
+        // while a mask keeps every turn inside the round edge. The mask is a
+        // sibling of the masked layer, which is how Omarchy's own toast and
+        // avatar photographs get their shape.
+        Item {
           anchors.fill: parent
-          anchors.margins: 1
-          source: root.artSource
-          sourceSize.width: Math.round(width * Screen.devicePixelRatio)
-          sourceSize.height: Math.round(height * Screen.devicePixelRatio)
-          fillMode: Image.PreserveAspectCrop
-          asynchronous: true
-          cache: true
-          smooth: true
+          layer.enabled: root.artSource !== "" && cover.status === Image.Ready
+          // Render the layer at device resolution. Without this Qt rasterizes
+          // an 18px artwork and scales the result, which stair-steps the round
+          // edge on every scaled display.
+          layer.textureSize: Qt.size(Math.ceil(width * Screen.devicePixelRatio),
+            Math.ceil(height * Screen.devicePixelRatio))
+          layer.smooth: true
+          layer.effect: MultiEffect {
+            maskEnabled: true
+            maskSource: discMask
+            maskThresholdMin: 0.5
+            maskSpreadAtMin: 1.0
+          }
+
+          Item {
+            // A full turn every 12 seconds: fast enough to read as playing,
+            // slow enough not to distract beside the bar's clock.
+            id: disc
+            anchors.fill: parent
+            transformOrigin: Item.Center
+            RotationAnimation on rotation {
+              running: true
+              paused: !root.artSpinning
+              from: 0
+              to: 360
+              duration: Style.duration(12000)
+              loops: Animation.Infinite
+              easing.type: Easing.Linear
+              direction: RotationAnimation.Clockwise
+            }
+
+            Image {
+              id: cover
+              anchors.fill: parent
+              source: root.artSource
+              sourceSize.width: Math.round(width * Screen.devicePixelRatio)
+              sourceSize.height: Math.round(height * Screen.devicePixelRatio)
+              fillMode: Image.PreserveAspectCrop
+              asynchronous: true
+              cache: true
+              smooth: true
+              onStatusChanged: if (status === Image.Error)
+                console.debug("[media-play-control.art]", "cover failed to load")
+            }
+          }
+        }
+
+        // The mask itself: a black circle the layer above reads as its alpha.
+        // Antialiased, or the disc's edge stair-steps at the bar's own 18px
+        // and every scale above it.
+        Rectangle {
+          id: discMask
+          anchors.fill: parent
+          visible: false
+          layer.enabled: true
+          layer.textureSize: Qt.size(Math.ceil(width * Screen.devicePixelRatio),
+            Math.ceil(height * Screen.devicePixelRatio))
+          antialiasing: true
+          radius: width / 2
+          color: "black"
+        }
+
+        // The highlight: one hairline of the theme accent, brighter while the
+        // track plays and dimmed when it does not. It sits outside the masked
+        // layer, so it never turns with the cover.
+        Rectangle {
+          anchors.fill: parent
+          radius: width / 2
+          antialiasing: true
+          color: "transparent"
+          border.width: Style.spacing.hairline
+          border.color: Commons.Util.alpha(Commons.Color.accent, root.playing ? 0.55 : 0.28)
         }
 
         // Centered by its ink at the bar's icon size, as Omarchy's own bar
         // icons are, inside the smallest artwork too.
         OpticalGlyph {
           anchors.fill: parent
+          // No cover at all, or one Qt could not decode: the note is the
+          // artwork. Drawn above the mask and the ring, unrotated.
           visible: root.artSource === "" || cover.status === Image.Error
           text: "󰝚"
           color: root.bar ? root.bar.barForeground : Commons.Color.foreground
@@ -666,7 +793,7 @@ BarWidget {
         text: root.displayText
         textFormat: Text.PlainText
         color: root.bar ? root.bar.barForeground : Commons.Color.foreground
-        opacity: root.activePlayer && root.activePlayer.isPlaying ? 0.92 : 0.58
+        opacity: root.playing ? 0.92 : 0.58
         font.family: root.bar ? root.bar.fontFamily : Style.font.family
         font.pixelSize: Style.font.body
         elide: Text.ElideRight
@@ -879,8 +1006,8 @@ BarWidget {
           }
 
           Button {
-            iconText: root.activePlayer && root.activePlayer.isPlaying ? "󰏤" : "󰐊"
-            tooltipText: root.activePlayer && root.activePlayer.isPlaying ? "Pause" : "Play"
+            iconText: root.playing ? "󰏤" : "󰐊"
+            tooltipText: root.playing ? "Pause" : "Play"
             iconSize: Style.font.iconLarge
             enabled: !!(root.activePlayer
               && (root.activePlayer.canPlay || root.activePlayer.canPause
