@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Mpris
+import "Player.js" as Player
 import "Transport.js" as Transport
 
 Item {
@@ -20,6 +21,12 @@ Item {
   readonly property string artist: activePlayer ? String(activePlayer.trackArtist || "") : ""
   readonly property string album: activePlayer ? String(activePlayer.trackAlbum || "") : ""
   readonly property string artUrl: activePlayer ? String(activePlayer.trackArtUrl || "") : ""
+  // Who is playing, for the now-playing panel: the player's own name, or ""
+  // when it exposes none. See Player.js.
+  readonly property string playerName: Player.label(activePlayer)
+  readonly property string playerState: activePlayer ? Player.stateText(activePlayer.isPlaying) : ""
+  // `Mozilla firefox · Playing`, or "" when the player is unnamed.
+  readonly property string playerSummary: activePlayer ? Player.summary(activePlayer, activePlayer.isPlaying) : ""
   // What the bar's Image loads: never the player's URL itself, which Qt would
   // download without a size limit. See Artwork.qml.
   readonly property string artSource: artwork.source
@@ -82,7 +89,9 @@ Item {
 
   function remember(player) {
     var key = playerKey(player)
-    if (key) preferredPlayerKey = key
+    if (!key) return
+    console.debug("[media-play-control.player] remembered", key)
+    preferredPlayerKey = key
   }
 
   function playPause() {
@@ -117,6 +126,37 @@ Item {
   function seekBy(seconds) {
     var player = activePlayer
     if (!Transport.seekBy(player, seconds)) return false
+    remember(player)
+    return true
+  }
+
+  // Absolute seek for the popup's progress bar and for IPC. SetPosition is
+  // tried first because it lands exactly on the requested time without
+  // depending on the player's own reading, which is what browsers lose after
+  // their first seek. A relative Seek is only the fallback: it is measured from
+  // whatever position the player reports, so a stale reading moves the track
+  // somewhere else entirely.
+  function seekTo(seconds) {
+    var player = activePlayer
+    if (!player) return false
+    if (!Transport.seekable(player)) {
+      console.debug("[media-play-control.service] seekTo refused",
+        player.canSeek ? "no timeline" : "player cannot seek")
+      return false
+    }
+    if (Transport.seekAbsolute(player, seconds)) {
+      console.info("[media-play-control.service] seekTo", seconds, "absolute")
+      remember(player)
+      return true
+    }
+    if (typeof player.positionChanged === "function") player.positionChanged()
+    var current = Number(player.position)
+    if (!Transport.seekTo(player, seconds, current)) {
+      console.debug("[media-play-control.service] seekTo refused by Transport",
+        "target", seconds, "current", current)
+      return false
+    }
+    console.info("[media-play-control.service] seekTo", seconds, "from", current)
     remember(player)
     return true
   }
@@ -157,7 +197,7 @@ Item {
 
   IpcHandler {
     enabled: root.ipcEnabled
-    target: "crmne.mpris"
+    target: "dealenx.media-play-control"
 
     function status(): string {
       return JSON.stringify(root.statusObject())

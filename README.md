@@ -1,15 +1,23 @@
-# Media Controls + Album Art for Omarchy
+# Media play control for Omarchy
 
 A native Quattro/Quickshell now-playing widget for the Omarchy bar, with media
 controls, live album art, and artist/title details:
 
-![Media Controls + Album Art in the Omarchy bar](preview.png)
+![Media play control in the Omarchy bar](preview.png)
 
 `previous` · `play/pause` · `next` · `album art` · `artist — title`
 
+This is a fork of [Media Controls + Album Art](https://github.com/crmne/omarchy-mpris)
+by [Carmine Paolino](https://github.com/crmne), used under the MIT license. The
+fork renames the widget, moves the appearance settings onto their own screen
+behind a settings icon, swaps the mouse buttons, adds an album-art-only bar
+mode, and puts transport controls and a seekable progress bar on the
+"Now playing" screen. The playlist logic, album-art helper, adaptive bar
+sizing, and the rest of the original design are unchanged.
+
 Optional seek buttons go back and forward 10 seconds:
 `previous` · `back 10 s` · `play/pause` · `forward 10 s` · `next`. Turn them on
-with "Show seek buttons" in the appearance panel. They are disabled when the
+with "Show seek buttons" in the settings screen. They are disabled when the
 player does not support seeking.
 
 On crowded horizontal bars, the widget adapts independently on each monitor.
@@ -37,9 +45,27 @@ service.
 ## Install
 
 ```bash
-omarchy plugin add https://github.com/crmne/omarchy-mpris.git --enable --yes
-omarchy bar move crmne.mpris --section right --before omarchy.tray
+omarchy plugin add https://github.com/dealenx/omarchy-media-play-control.git --enable --yes
+omarchy bar move dealenx.media-play-control --section right --before omarchy.tray
 ```
+
+## Migrating from Media Controls + Album Art
+
+The upstream plugin uses the id `crmne.mpris`, so the two cannot be installed
+side by side. To switch over:
+
+```bash
+omarchy plugin remove crmne.mpris --yes
+omarchy plugin add https://github.com/dealenx/omarchy-media-play-control.git --enable --yes
+omarchy bar move dealenx.media-play-control --section right --before omarchy.tray
+```
+
+Removing a plugin leaves its bar entry behind in `~/.config/omarchy/shell.json`.
+After the new widget is placed, delete that leftover `crmne.mpris` object from
+the `bar.layout` array by hand, then run `omarchy-shell shell rescanPlugins`.
+Settings you had set on the old entry (`maxCharacters`, `maxLabelWidth`,
+`showAlbumArt`, and so on) are stored on that entry, so copy the keys you want
+to keep onto the new one before deleting it.
 
 ## Requirements
 
@@ -49,6 +75,77 @@ omarchy bar move crmne.mpris --section right --before omarchy.tray
 
 This plugin uses Quickshell's MPRIS service directly and does not require
 `playerctl`.
+
+## Mouse and click behavior
+
+| Input | Action |
+|---|---|
+| Left click on artwork or label | Open the "Now playing" screen; the next left click closes it |
+| Right click anywhere on the widget, transport buttons included | Play/pause |
+| Middle click on artwork or label | Previous track |
+| Scroll over the widget | Previous/next track |
+
+Clicking transport buttons performs that button's own action; the right button
+toggles playback from anywhere in the widget, so pause and resume never needs
+a precise click. Left click is a toggle, so the panel closes the same way it
+opened.
+
+Every part of the widget takes the pointer over the bar's full height, not just
+over the artwork's or a glyph's own box, and shows the pointing cursor
+throughout: there is no four-pixel strip above or below the cover that ignores
+a click.
+
+## Panels
+
+Left click opens the "Now playing" screen: the album art beside the track
+title, artist and album, the player name with its playback state
+(`Mozilla firefox · Playing`), previous / play-pause / next buttons, a progress
+bar with the elapsed and total time, and an `Open Media` button that raises the
+player's own window the way left click used to. Its settings icon opens the
+settings screen.
+
+The transport and the progress bar follow what the player actually reports.
+Previous and next are disabled when the player cannot skip, as most browsers
+cannot, so the card never offers a click that does nothing. The progress bar
+appears only when the player reports both a position and a track length; when
+it does, dragging it seeks, and it stays visible but frozen for a player that
+reports a length without supporting seeking.
+
+The settings screen holds every appearance control the widget has: adaptive
+layout, transport controls, seek buttons, album artwork, artist visibility,
+album-art size, label width, a maximum artist/title character count, album-art
+only, and hide when nothing plays. A back arrow returns to "Now playing".
+
+The widget stays on the bar when no player has media, showing its music-note
+placeholder, so its position does not jump around as players come and go.
+Turn on "Hide when nothing plays" to bring back the upstream behavior.
+
+## Settings
+
+- **Adapt to available space**: shrink the widget before the bar sections
+  overlap (`adaptiveLayout`, default on).
+- **Album art only**: show the artwork alone, without the label or the
+  controls (`albumArtOnly`, default off). It wins over the controls and
+  artwork toggles below, and the widget keeps a usable width in adaptive
+  layouts.
+- **Show transport controls**: previous, play/pause, and next
+  (`showControls`, default on).
+- **Show seek buttons**: back and forward 10 seconds (`showSeekControls`,
+  default off).
+- **Show album art**: artwork beside the track label (`showAlbumArt`,
+  default on).
+- **Show artist**: artist before the track title (`showArtist`, default on).
+- **Hide when nothing plays**: hide the widget while no player has media
+  (`hideWhenIdle`, default off).
+- **Album art size**: artwork size in logical pixels (`albumArtSize`,
+  default 18).
+- **Maximum label width**: label width in logical pixels (`maxLabelWidth`,
+  default 300).
+- **Maximum characters**: artist/title character limit (`maxCharacters`,
+  default 48).
+
+Settings live on the widget's bar entry in `shell.json` and are written through
+the shell, so they survive restarts and apply on every monitor.
 
 ## Album art
 
@@ -72,32 +169,24 @@ see.
 ## Remove
 
 ```bash
-omarchy plugin remove crmne.mpris --yes
+omarchy plugin remove dealenx.media-play-control --yes
 ```
 
 For local development, put or link this repository at
-`~/.config/omarchy/plugins/crmne.mpris` and run:
+`~/.config/omarchy/plugins/dealenx.media-play-control` and run:
 
 ```bash
 omarchy-shell shell rescanPlugins
-omarchy plugin enable crmne.mpris --section right --before omarchy.tray
+omarchy plugin enable dealenx.media-play-control --section right --before omarchy.tray
 ```
-
-Click album art or the label to raise the player, and middle-click there for
-the previous track. Scrolling anywhere over the controls changes track.
-Right-click any part of the widget to open its appearance panel.
-
-The appearance panel and Omarchy bar settings expose adaptive layout,
-transport controls, seek buttons, album artwork, artist visibility, album-art
-size, label width, and a maximum artist/title character count.
 
 ## IPC
 
-The widget registers the `crmne.mpris` IPC target:
+The widget registers the `dealenx.media-play-control` IPC target:
 
 ```bash
-omarchy-shell crmne.mpris playPause
-omarchy-shell crmne.mpris seekBy -10
+omarchy-shell dealenx.media-play-control playPause
+omarchy-shell dealenx.media-play-control seekBy -10
 omarchy-shell dealenx.media-play-control seekTo 95
 ```
 
@@ -112,20 +201,23 @@ supports seeking and reports a track length. `status` returns JSON with
 
 ## Screenshots
 
-`preview.png` shows the actual widget and its appearance panel with synthetic
-data: an invented artist and tracks and a self-drawn abstract cover. It shows
-the full layout while playing, with the panel opened under it, large and in the
-middle of the image, because the marketplace card shows only a wide strip from
-the middle and websites crop it to 16:9.
+`preview.png` shows the actual widget and its panels with synthetic data: an
+invented artist and tracks and a self-drawn abstract cover. It shows the full
+layout while playing, with the "Now playing" screen opened under it, large and
+in the middle of the image, because the marketplace card shows only a wide
+strip from the middle and websites crop it to 16:9.
 
 `tools/capture/` copies the production `BarWidget.qml`, `BarGeometry.js`,
-`ServiceSource.qml`, `TextLimit.js` and `Transport.js` into a temporary
-offscreen Quickshell host with Omarchy's installed `Commons` and `Ui`, the
-Ristretto theme, and JetBrainsMono Nerd Font. `Service.qml` is replaced by a
-fixture with no MPRIS import, so the capture never sees or controls a real
-media player. The workspaces, clock and tray icons beside the widget are plain
-stand-ins drawn with the bar's font and colors. The background is Omarchy's
-Ristretto wallpaper, blurred and darkened.
+`ServiceSource.qml`, `TextLimit.js`, `Transport.js`, `Clicks.js`, `Layout.js`
+and `Player.js` into a temporary offscreen Quickshell host with Omarchy's
+installed `Commons` and `Ui`, the Ristretto theme, and JetBrainsMono Nerd
+Font. `Service.qml` is replaced by a fixture with no MPRIS import, so the
+capture never sees or controls a real media player. Its fake player exposes a
+position, a length, and the seek and skip capabilities, which the capture flips
+to prove the progress row hides itself without a length and freezes for a
+player that cannot seek. The workspaces, clock and tray icons beside the widget
+are plain stand-ins drawn with the bar's font and colors. The background is
+Omarchy's Ristretto wallpaper, blurred and darkened.
 
 ```bash
 /usr/bin/python3 -B tools/capture/capture.py [captures-dir]
@@ -135,9 +227,9 @@ The script requests OpenGL and refuses a software-rendered capture.
 
 ## Validation
 
-Run the geometry, service-lookup, label-truncation, seek, and artwork
-regression tests with Qt Quick Test, and the artwork helper's and QML color
-checks with Python:
+Run the geometry, service-lookup, label-truncation, seek and timeline, click,
+player-label, layout, and artwork regression tests with Qt Quick Test, and the
+artwork helper's and QML color checks with Python:
 
 ```bash
 QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmltestrunner -input tests

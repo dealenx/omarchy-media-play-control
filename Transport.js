@@ -87,6 +87,7 @@ if (typeof module !== "undefined") {
     progressFraction: progressFraction,
     seekable: seekable,
     seekTo: seekTo,
+    seekAbsolute: seekAbsolute,
     formatTime: formatTime
   }
 }
