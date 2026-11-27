@@ -7,6 +7,13 @@ controls, live album art, and artist/title details:
 
 `previous` · `play/pause` · `next` · `album art` · `artist — title`
 
+[![Demo: the widget on the bar, its now-playing screen, and its settings](demo/poster.jpg)](demo/demo.mp4)
+
+Click the still to watch the 40-second demo (`demo/demo.mp4`): the disc turning
+while a track plays, the "Now playing" card with its transport and progress bar,
+and the settings screen being changed live. It is recorded from a real Omarchy
+session, with the track's audio removed.
+
 The artwork is always the same disc, whether or not the player has a cover:
 masked to a circle inside a two-pixel ring of the theme accent, with a soft
 accent halo behind it while a track plays. With a cover the disc turns once
@@ -127,6 +134,10 @@ layout, transport controls, seek buttons, album artwork, artist visibility,
 album-art size, label width, a maximum artist/title character count, album-art
 only, and hide when nothing plays. A back arrow returns to "Now playing".
 
+![The settings screen with every appearance control](demo/settings.png)
+
+![The now-playing screen: cover, track details, transport, and progress](demo/now-playing.png)
+
 The widget stays on the bar when no player has media, showing its music-note
 placeholder, so its position does not jump around as players come and go.
 Turn on "Hide when nothing plays" to bring back the upstream behavior.
@@ -214,7 +225,19 @@ supports seeking and reports a track length. `status` returns JSON with
 `canGoPrevious`, `canGoNext`, `canSeek`, `hasProgress`, `position`, and
 `length`; `position` and `length` are in seconds, as Quickshell reports them.
 
-## Screenshots
+## Screenshots and demo
+
+`demo/demo.mp4` is a 40-second recording of the plugin in a real Omarchy
+session: the disc turning on the bar while a track plays, the "Now playing"
+card with transport and progress, and the settings screen being changed live.
+The audio track was stripped, since the recording played copyrighted music, and
+the video is re-encoded to 1600×900 H.264 so it stays small enough for a
+repository. `demo/poster.jpg` is its still, and `demo/settings.png` and
+`demo/now-playing.png` are the two panels captured by `tools/capture/`.
+
+GitHub renders a repository `.mp4` as a download, not an inline player, so the
+README shows the poster and links to the file; the file itself plays in the
+browser or any video player.
 
 `preview.png` shows the actual widget and its panels with synthetic data: an
 invented artist and tracks and a self-drawn abstract cover. It shows the full
