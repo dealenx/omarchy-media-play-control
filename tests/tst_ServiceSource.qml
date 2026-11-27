@@ -14,7 +14,7 @@ TestCase {
   QtObject {
     id: trustedBar
     property var shell: QtObject {
-      function serviceFor(id) { return id === "crmne.mpris" ? hosted : null }
+      function serviceFor(id) { return id === "dealenx.media-play-control" ? hosted : null }
     }
   }
 
@@ -39,7 +39,7 @@ TestCase {
   Component {
     id: sourceComponent
     ServiceSource {
-      serviceId: "crmne.mpris"
+      serviceId: "dealenx.media-play-control"
       fallback: fallbackComponent
     }
   }

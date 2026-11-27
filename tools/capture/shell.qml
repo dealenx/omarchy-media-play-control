@@ -44,12 +44,14 @@ ShellRoot {
 
   component FakeShell: QtObject {
     property var service: null
-    function serviceFor(id) { return id === "crmne.mpris" ? service : null }
+    function serviceFor(id) { return id === "dealenx.media-play-control" ? service : null }
   }
 
   component Api: PluginBarApi {
-    pluginId: "crmne.mpris"
-    moduleName: "crmne.mpris"
+    id: api
+    position: Quickshell.env("MPRIS_BAR_POSITION") || "top"
+    pluginId: "dealenx.media-play-control"
+    moduleName: "dealenx.media-play-control"
     foreground: Commons.Color.bar.text
     barForeground: Commons.Color.bar.text
     background: Commons.Color.bar.background
@@ -59,6 +61,21 @@ ShellRoot {
     foregroundAnimationEnabled: false
     _requestPopout: function(owner) { activePopout = owner }
     _releasePopout: function(owner) { if (activePopout === owner) activePopout = null }
+    // The bar's real registerClickTarget keeps the widget's own items; here
+    // the strip owns the list, so it is reached through the closure below.
+    _registerClickTarget: function(target) { api.noteClickTarget(api, target, true) }
+    _unregisterClickTarget: function(target) { api.noteClickTarget(api, target, false) }
+
+    // Set by BarStrip so registration lands on the strip's own list.
+    property var clickTargetOwner: null
+
+    function noteClickTarget(self, target, adding) {
+      var owner = self.clickTargetOwner
+      if (!owner) return
+      var at = owner.clickTargets.indexOf(target)
+      if (adding && at === -1) owner.clickTargets.push(target)
+      else if (!adding && at !== -1) owner.clickTargets.splice(at, 1)
+    }
   }
 
   // A slot shaped like Bar.qml's ModuleSlot (region + activeItem), which is
@@ -99,7 +116,11 @@ ShellRoot {
     readonly property real clockX: clockSlot.x
     property var service
     property string clock: "Wed 21:40"
-    readonly property Api api: Api { shell: FakeShell { service: strip.service } }
+    property var clickTargets: []
+    readonly property Api api: Api {
+      shell: FakeShell { service: strip.service }
+      clickTargetOwner: strip
+    }
     height: Style.bar.sizeHorizontal
 
     Rectangle { anchors.fill: parent; color: Commons.Color.bar.background }
@@ -182,6 +203,35 @@ ShellRoot {
     return null
   }
 
+  // Every MouseArea the widget exposes, with the surface it represents.
+  function clickAreas(widget) {
+    var found = []
+    var stack = [widget]
+    while (stack.length > 0) {
+      var item = stack.pop()
+      if (!item) continue
+      if (item.acceptedButtons !== undefined && item.cursorShape !== undefined
+          && item.onClicked !== undefined) found.push(item)
+      var kids = item.children || []
+      for (var i = 0; i < kids.length; i++) stack.push(kids[i])
+    }
+    return found
+  }
+
+  function hitHeights(widget) {
+    var areas = clickAreas(widget)
+    var out = []
+    for (var i = 0; i < areas.length; i++) out.push(Math.round(areas[i].height))
+    return out
+  }
+
+  function hitCursors(widget) {
+    var areas = clickAreas(widget)
+    var out = []
+    for (var i = 0; i < areas.length; i++) out.push(areas[i].cursorShape === Qt.PointingHandCursor)
+    return out
+  }
+
   function state(strip) {
     var w = strip.widget
     return {
@@ -189,7 +239,56 @@ ShellRoot {
       budget: w.adaptiveWidthBudget, stripWidth: strip.width,
       label: w.displayText, labelWidth: w.effectiveLabelWidth,
       previousNext: w.previousNextVisible, playPause: w.playPauseVisible,
-      art: w.albumArtVisible, labelVisible: w.labelVisible, opened: w.opened
+      art: w.albumArtVisible, labelVisible: w.labelVisible, opened: w.opened,
+      page: w.page, albumOnly: w.albumArtOnly, playerSummary: w.playerSummary,
+      showProgress: w.showProgress, seekable: w.seekable,
+      // Hit areas must cover the whole bar column, not just the artwork.
+      barSize: w.barSize,
+      clickTargets: strip.clickTargets.length,
+      clickTargetHeights: strip.clickTargets.map(function(t) { return Math.round(t.height) })
+    }
+  }
+
+  // Everything the popup's progress row claims, so the capture can assert it
+  // instead of trusting a screenshot. The card lives in its own window, so the
+  // walk starts at the popup rather than at the bar widget.
+  function transportButtons() {
+    var popup = settingsPopup()
+    var names = ["Previous", "Play", "Pause", "Next"]
+    var found = []
+    // PopupCard's default property aliases `contentItem` to its holder's
+    // children, so this is a list of items, not a single one.
+    var holders = popup ? popup.contentItem : []
+    var stack = []
+    for (var h = 0; h < holders.length; h++) stack.push(holders[h])
+    while (stack.length > 0) {
+      var item = stack.pop()
+      if (!item) continue
+      if (item.tooltipText !== undefined && names.indexOf(item.tooltipText) !== -1) {
+        found.push({ icon: item.iconText, tooltip: item.tooltipText, enabled: item.enabled })
+      }
+      var kids = item.children || []
+      for (var i = 0; i < kids.length; i++) stack.push(kids[i])
+    }
+    return found
+  }
+
+  function timeline(widget) {
+    var w = widget || wide.widget
+    var snap = w.timelineSnapshot()
+    return {
+      showProgress: snap.showProgress, seekable: snap.seekable,
+      position: snap.position, length: snap.length, fraction: snap.fraction,
+      elapsed: snap.elapsed, total: snap.total, state: snap.state,
+      ticking: w.timelineTicking,
+      title: w.title,
+      reportedLength: w.reportedLength,
+      rememberedLength: w.rememberedLength,
+      rememberedKey: w.rememberedLengthTrackKey,
+      trackKey: w.timelineKey(w.timelinePlayer),
+      seekOffsets: playingService.seekOffsets.slice(),
+      absoluteSeeks: playingService.absoluteSeeks.slice(),
+      transport: transportButtons()
     }
   }
 
@@ -259,6 +358,27 @@ ShellRoot {
       narrow.widget.refreshAdaptiveWidthBudget()
       return JSON.stringify(state(narrow))
     }
+    function setWidgetSetting(key: string, value: string): string {
+      var settings = { id: wide.widget.moduleName }
+      var current = wide.widget.settings || {}
+      for (var name in current) if (name !== "id") settings[name] = current[name]
+      settings[key] = value === "true" ? true : value === "false" ? false : Number(value)
+      wide.widget.settings = settings
+      narrow.widget.settings = settings
+      wide.widget.refreshAdaptiveWidthBudget()
+      narrow.widget.refreshAdaptiveWidthBudget()
+      return JSON.stringify(state(wide))
+    }
+    function setPlaying(value: bool): string {
+      playingService.playing = value
+      return JSON.stringify({ playing: playingService.playing })
+    }
+    function setIdle(): string {
+      playingService.title = ""
+      playingService.artist = ""
+      playingService.artUrl = ""
+      return JSON.stringify(state(wide))
+    }
     function states(): string {
       return JSON.stringify({ wide: state(wide), narrow: state(narrow), coverStatus: host.coverReady })
     }
@@ -266,7 +386,117 @@ ShellRoot {
       wide.widget.open()
       var popup = settingsPopup()
       return JSON.stringify({ opened: wide.widget.opened, popupVisible: popup.visible,
+        width: popup.implicitWidth, height: popup.implicitHeight, page: wide.widget.page })
+    }
+    // Flip what the fake player can do, and report what the popup makes of it.
+    // `qs ipc call` passes every argument as text, so the flag is parsed here
+    // rather than relying on the bool annotation.
+    function setTimeline(position: real, length: real, seekable: string): string {
+      playingService.position = position
+      playingService.length = length
+      playingService.canSeek = seekable === "true"
+      playingService.syncPlayer()
+      wide.widget.syncTimeline("manual")
+      return JSON.stringify(timeline())
+    }
+    function timelineState(): string {
+      return JSON.stringify(timeline())
+    }
+    // A browser that cannot skip tracks: the buttons stay, disabled.
+    function setTransportCapabilities(previous: string, next: string): string {
+      playingService.canGoPrevious = previous === "true"
+      playingService.canGoNext = next === "true"
+      return JSON.stringify(timeline())
+    }
+    // Drive the release of a drag, as the slider does when the pointer lifts.
+    function seekPopup(seconds: real): string {
+      wide.widget.seekTo(seconds)
+      return JSON.stringify(timeline())
+    }
+    // Walk the popup for the progress bar, so the capture can drive the real
+    // signal sequence instead of calling the widget's seek directly. Matched by
+    // objectName: the hidden settings screen carries sliders of the same type.
+    function progressSlider() {
+      var holders = settingsPopup() ? settingsPopup().contentItem : []
+      var stack = []
+      for (var h = 0; h < holders.length; h++) stack.push(holders[h])
+      while (stack.length > 0) {
+        var item = stack.pop()
+        if (!item) continue
+        if (item.objectName === "progressSlider") return item
+        var kids = item.children || []
+        for (var i = 0; i < kids.length; i++) stack.push(kids[i])
+      }
+      return null
+    }
+    // A full pointer drag: press, move, release. This is the sequence that
+    // hid the offset bug, because the move already writes the target into the
+    // playhead before the release computes the seek.
+    function dragPopup(seconds: real): string {
+      var slider = progressSlider()
+      if (!slider) return JSON.stringify({ error: "no slider" })
+      var target = Math.max(slider.minimum, Math.min(slider.maximum, seconds))
+      slider.dragging = true
+      slider.moved(target)
+      slider.liveValue = target
+      slider.dragging = false
+      slider.released(target)
+      return JSON.stringify(timeline())
+    }
+    // A wheel notch: PanelSlider emits moved then released with no drag at all,
+    // so the playhead is overwritten before the seek is computed.
+    function wheelPopup(): string {
+      var slider = progressSlider()
+      if (!slider) return JSON.stringify({ error: "no slider" })
+      var target = Math.max(slider.minimum,
+        Math.min(slider.maximum, slider.liveValue + slider.step))
+      slider.liveValue = target
+      slider.moved(target)
+      slider.released(target)
+      return JSON.stringify(timeline())
+    }
+    // A track change as the player reports it: new metadata, a new length, and
+    // a playhead that starts over.
+    function changeTrack(title: string, length: real): string {
+      // Title first: a player publishes new metadata before the length, and the
+      // widget keys its remembered length on the track identity. Setting the
+      // length first would let the old key claim the new value.
+      playingService.title = title
+      playingService.position = 0
+      playingService.length = length
+      playingService.syncPlayer()
+      return JSON.stringify(timeline())
+    }
+    // A browser whose MPRIS clock dies after a seek: it keeps claiming to play
+    // and reports 0 forever, as Firefox does on Linux.
+    function breakPlayerClock(): string {
+      playingService.positionClockBroken = true
+      playingService.syncPlayer()
+      wide.widget.syncTimeline("manual")
+      return JSON.stringify(timeline())
+    }
+    function repairPlayerClock(): string {
+      playingService.positionClockBroken = false
+      playingService.position = 72
+      playingService.syncPlayer()
+      return JSON.stringify(timeline())
+    }
+    function showSettingsPage(): string {
+      wide.widget.open()
+      wide.widget.showSettings()
+      var popup = settingsPopup()
+      return JSON.stringify({ page: wide.widget.page, popupVisible: popup.visible,
         width: popup.implicitWidth, height: popup.implicitHeight })
+    }
+    function showNowPlayingPage(): string {
+      wide.widget.showNowPlaying()
+      return JSON.stringify({ page: wide.widget.page })
+    }
+    // Closing must stop the playhead too, not just hide the card.
+    function closePopup(): string {
+      wide.widget.close()
+      return JSON.stringify({ page: wide.widget.page, opened: wide.widget.opened,
+        ticking: wide.widget.timelineTicking })
     }
     function widgetGeometry(): string {
       var w = wide.widget
@@ -276,7 +506,8 @@ ShellRoot {
     }
     function grab(which: string, path: string): string {
       var item = which === "wide" ? wide : which === "narrow" ? narrow
-        : which === "settings" ? settingsPopup().contentItem[0].parent.parent : null
+        : which === "settings" || which === "panel"
+          ? settingsPopup().contentItem[0].parent.parent : null
       if (!item) return "No item " + which
       return item.grabToImage(result => result.saveToFile(path)) ? "ok" : "Capture failed"
     }
