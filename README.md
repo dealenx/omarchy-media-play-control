@@ -7,14 +7,16 @@ controls, live album art, and artist/title details:
 
 `previous` · `play/pause` · `next` · `album art` · `artist — title`
 
-The cover is a disc: the artwork is masked to a circle inside a two-pixel ring
-of the theme accent, with a soft accent halo behind it, and while a track plays
-it turns once every twelve seconds. On pause the disc holds the angle it
-reached; nothing snaps back. With no cover, or a cover Qt cannot decode, the
-slot is simply the theme-accent music note — no circle, no ring, no halo — and
-it turns at the same speed while the track plays. The spin stops when the bar
-is hidden behind a fullscreen window and when animations are off
-(`omarchy toggle animations`), which is the shell's own reduced-motion switch.
+The artwork is always the same disc, whether or not the player has a cover:
+masked to a circle inside a two-pixel ring of the theme accent, with a soft
+accent halo behind it while a track plays. With a cover the disc turns once
+every twelve seconds; without one, or with one Qt cannot decode, a smaller
+theme-accent music note takes the cover's place in the same ring and turns at
+the same speed. On pause the disc holds the angle; nothing snaps back, and the
+note settles upright so a stopped player never looks like a broken icon. The
+spin stops when the bar is hidden behind a fullscreen window and when
+animations are off (`omarchy toggle animations`), which is the shell's own
+reduced-motion switch.
 
 This is a fork of [Media Controls + Album Art](https://github.com/crmne/omarchy-mpris)
 by [Carmine Paolino](https://github.com/crmne), used under the MIT license. The

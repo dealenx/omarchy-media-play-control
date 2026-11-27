@@ -299,7 +299,18 @@ def capture_all(work, env, shell, plugin, output):
         print("idle", idle, file=sys.stderr)
         assert idle["visible"] and idle["art"], idle
         assert not idle["labelVisible"] and not idle["playPause"], idle
+        assert not idle["artSpinning"], idle
         grab(call, "wide", output / "bar-idle.png")
+        # Playing a track that has no cover at all: the note takes the cover's
+        # place inside the same round slot and turns at the same speed.
+        json.loads(call("setPlaying", "true"))
+        time.sleep(.3)
+        uncovered = json.loads(call("states"))["wide"]
+        assert uncovered["visible"] and uncovered["artSpinning"], uncovered
+        assert uncovered["artKind"] == "note", uncovered
+        print("uncovered note spinning", file=sys.stderr)
+        grab(call, "wide", output / "bar-nocover.png")
+        json.loads(call("setPlaying", "false"))
         # "Hide when nothing plays" brings back the upstream behavior.
         hidden = json.loads(call("setWidgetSetting", "hideWhenIdle", "true"))
         time.sleep(.6)

@@ -243,7 +243,10 @@ ShellRoot {
       page: w.page, albumOnly: w.albumArtOnly, playerSummary: w.playerSummary,
       showProgress: w.showProgress, seekable: w.seekable,
       // The artwork: a round disc that turns only while the track plays.
-      artShape: "circle", artSpinning: w.artSpinning, artAngle: w.artDisc ? Math.round(w.artDisc.rotation) : 0,
+      artShape: "circle", artSpinning: w.artSpinning,
+      artAngle: w.artDisc ? Math.round(w.artDisc.rotation) : 0,
+      // Which artwork the slot is drawing: the cover, or the note in its place.
+      artKind: w.coverShown ? "cover" : "note",
       // Hit areas must cover the whole bar column, not just the artwork.
       barSize: w.barSize,
       clickTargets: strip.clickTargets.length,
@@ -382,6 +385,9 @@ ShellRoot {
       return JSON.stringify(state(wide))
     }
     function setIdle(): string {
+      // Idle means nothing is playing, not merely "no cover": a playing
+      // player without artwork still spins its note.
+      playingService.playing = false
       playingService.title = ""
       playingService.artist = ""
       playingService.artUrl = ""

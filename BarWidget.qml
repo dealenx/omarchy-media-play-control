@@ -651,16 +651,15 @@ BarWidget {
           antialiasing: true
           radius: width / 2
           color: Commons.Util.alpha(Commons.Color.accent, 0.18)
-          visible: root.coverShown && root.playing
+          visible: root.playing
         }
 
-        // The disc's own ground: what shows through a cover with transparent
-        // pixels. Nothing at all without a cover, which is the bare note.
+        // The disc's own ground. A cover is drawn over it; the placeholder
+        // note sits on it, so both states read as the same round slot.
         Rectangle {
           anchors.fill: parent
           antialiasing: true
           radius: width / 2
-          visible: root.coverShown
           color: root.bar ? Style.normalFillFor(root.bar.barForeground, Commons.Color.accent) : "transparent"
         }
 
@@ -716,18 +715,28 @@ BarWidget {
                 console.debug("[media-play-control.art]", "cover failed to load")
             }
 
-            // No cover at all, or one Qt could not decode: the accent music
-            // note is the whole artwork — no ground, no ring, no halo, no
-            // circle. It sits inside the turning item, so it turns at exactly
-            // the cover's speed while the track plays and freezes on pause.
+            // No cover at all, or one Qt could not decode: a smaller accent
+            // note inside the same round slot, so the placeholder reads as the
+            // same artwork shape rather than as a different widget.
             OpticalGlyph {
               anchors.fill: parent
-              visible: root.artSource === "" || cover.status === Image.Error
+              visible: !root.coverShown
               text: "󰝚"
               color: Commons.Util.alpha(Commons.Color.accent, root.playing ? 1.0 : 0.55)
               fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
               fontSize: Style.bar.iconFont
-              paintedSize: Math.min(Style.bar.iconSize, root.artSize - Style.space(4))
+              // Deliberately smaller than the cover: the note is a glyph in
+              // the disc, not a picture filling it.
+              paintedSize: Math.max(8, Math.round(root.artSize * 0.55))
+              transformOrigin: Item.Center
+              // Playing, the note rides the disc and turns with it. Stopped, a
+              // cover frozen mid-turn reads as a record that paused, but a
+              // note frozen mid-turn reads as a broken icon, so it settles
+              // upright over one short animation instead.
+              rotation: root.artSpinning ? 0 : -(disc.rotation % 360)
+              Behavior on rotation {
+                NumberAnimation { duration: Style.duration(220); easing.type: Easing.OutCubic }
+              }
             }
           }
         }
@@ -756,7 +765,6 @@ BarWidget {
           anchors.margins: -Style.space(2)
           radius: width / 2
           antialiasing: true
-          visible: root.coverShown
           color: "transparent"
           border.width: Style.space(2)
           border.color: Commons.Util.alpha(Commons.Color.accent, root.playing ? 0.55 : 0.28)
