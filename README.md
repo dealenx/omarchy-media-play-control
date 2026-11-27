@@ -3,16 +3,16 @@
 A native Quattro/Quickshell now-playing widget for the Omarchy bar, with media
 controls, live album art, and artist/title details:
 
-![Media play control in the Omarchy bar](preview.png)
+![The "Now playing" card over the Omarchy bar in a real session](preview.png)
 
 `previous` · `play/pause` · `next` · `album art` · `artist — title`
 
-[![Demo: the widget on the bar, its now-playing screen, and its settings](demo/poster.jpg)](demo/demo.mp4)
+https://github.com/user-attachments/assets/74249060-8b5e-49d5-ab3b-7c8be345209b
 
-Click the still to watch the 40-second demo (`demo/demo.mp4`): the disc turning
-while a track plays, the "Now playing" card with its transport and progress bar,
-and the settings screen being changed live. It is recorded from a real Omarchy
-session, with the track's audio removed.
+Forty seconds of the plugin in a real Omarchy session (`demo/demo.mp4`): the disc
+turning while a track plays, the "Now playing" card with its transport and
+progress bar, and the settings screen being changed live, with the track's audio
+removed.
 
 The artwork is always the same disc, whether or not the player has a cover:
 masked to a circle inside a two-pixel ring of the theme accent, with a soft
@@ -232,18 +232,32 @@ session: the disc turning on the bar while a track plays, the "Now playing"
 card with transport and progress, and the settings screen being changed live.
 The audio track was stripped, since the recording played copyrighted music, and
 the video is re-encoded to 1600×900 H.264 so it stays small enough for a
-repository. `demo/poster.jpg` is its still, and `demo/settings.png` and
-`demo/now-playing.png` are the two panels captured by `tools/capture/`.
+repository. `demo/session.png` is a screenshot of the same session,
+`demo/settings.png` and `demo/now-playing.png` are the two panels captured by
+`tools/capture/`, and `demo/poster.jpg` is the video's still.
 
-GitHub renders a repository `.mp4` as a download, not an inline player, so the
-README shows the poster and links to the file; the file itself plays in the
-browser or any video player.
+GitHub never inlines an `.mp4` served from the repository itself: a relative
+`<video>` tag is stripped and a plain link renders as a download. The README
+therefore embeds the file through a copy uploaded to the account's user
+attachments, which GitHub renders as its own inline player. That copy is
+byte-identical to `demo/demo.mp4`.
 
-`preview.png` shows the actual widget and its panels with synthetic data: an
-invented artist and tracks and a self-drawn abstract cover. It shows the full
-layout while playing, with the "Now playing" screen opened under it, large and
-in the middle of the image, because the marketplace card shows only a wide
-strip from the middle and websites crop it to 16:9.
+To replace the video, upload the new cut and paste the returned
+`https://github.com/user-attachments/assets/…` URL alone on its line:
+
+```bash
+curl -sS "https://uploads.github.com/user-attachments/assets?name=demo.mp4&content_type=video/mp4&repository_id=$(gh api repos/dealenx/omarchy-media-play-control --jq .id)" \
+  -X POST -H "Authorization: Bearer $(gh auth token)" -H "Accept: application/json" \
+  --data-binary "@demo/demo.mp4"
+```
+
+`preview.png` is `demo/session.png` — a real session with the "Now playing" card
+open over the bar — enlarged 2.6 times so its own text survives a marketplace
+card, rounded and shadowed in the middle of the image over Omarchy's Ristretto
+wallpaper, blurred and darkened. The card shows only a wide strip from the
+vertical middle and websites crop to 16:9, so the still is centered.
+`tools/capture/capture.py` composes it, and the synthetic-data captures below
+are what it writes beside it.
 
 `tools/capture/` copies the production `BarWidget.qml`, `BarGeometry.js`,
 `ServiceSource.qml`, `TextLimit.js`, `Transport.js`, `Clicks.js`, `Layout.js`

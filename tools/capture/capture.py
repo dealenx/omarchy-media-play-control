@@ -135,7 +135,6 @@ def capture_all(work, env, shell, plugin, output):
                QT_QUICK_BACKEND="rhi", QSG_RHI_BACKEND="opengl", QSG_INFO="1",
                QT_SCALE_FACTOR=str(SCALE), MPRIS_PLUGIN=str(plugin), MPRIS_OUTPUT=str(output),
                MPRIS_MODE="capture")
-    geometry = {}
 
     def capture(call):
         assert call("drawCover") == "true"
@@ -189,7 +188,6 @@ def capture_all(work, env, shell, plugin, output):
         time.sleep(.5)
         grab(call, "wide", output / "bar.png")
         grab(call, "narrow", output / "bar-compact.png")
-        geometry.update(json.loads(call("widgetGeometry")))
         opened = json.loads(call("openSettings"))
         assert opened["opened"] and opened["popupVisible"], opened
         assert opened["page"] == "nowPlaying", opened
@@ -325,30 +323,18 @@ def capture_all(work, env, shell, plugin, output):
     (output / "capture.log").write_text(log_text)
     (output / "cover.png").unlink(missing_ok=True)
 
-    # Compose the 2560x1600 marketplace preview. The marketplace card shows
-    # only a strip about 2.7 times as wide as it is tall from the vertical
-    # middle, and websites crop to 16:9, so the widget is shown large in the
-    # middle band: the bar from just before the widget to its right edge,
-    # flush with the canvas edge like the real bar, and the appearance panel
-    # opening under it and running off the bottom.
-    sizes = {name: png_size(output / name) for name in ["bar.png", "now-playing.png"]}
-    bar_w, bar_h = sizes["bar.png"]
-    settings_w, settings_h = sizes["now-playing.png"]
-    margin = 5 * SCALE  # Style.gapsOut between bar and popup.
-    clip_x = round((geometry["x"] - 14) * SCALE)
-    # The rounded right end runs off the canvas, inside the tray margin.
-    bar_x, bar_y = 2560 - (bar_w - clip_x) + 10 * SCALE, 120
-    # The panel is shown at 80% so its text starts inside the crops, and
-    # high enough that the whole card lands in the 16:9 window.
-    card_w, card_h = round(settings_w * .66), round(settings_h * .66)
-    widget_center = bar_x + round((geometry["x"] + geometry["width"] / 2) * SCALE) - clip_x
-    card_x = max(40, min(widget_center - card_w // 2, 2560 - card_w - 40))
-    card_y = bar_y + bar_h + margin
-    layout = [
-        dict(file="bar.png", x=bar_x, y=bar_y, width=bar_w - clip_x, height=bar_h,
-             clip=[clip_x, 0, bar_w - clip_x, bar_h], radius=10 * SCALE),
-        dict(file="now-playing.png", x=card_x, y=card_y, width=card_w, height=card_h),
-    ]
+    # Compose the 2560x1600 marketplace preview from the real-session still:
+    # the screenshot enlarged 2.6x so its own text survives, rounded and
+    # shadowed, over Omarchy's Ristretto wallpaper, blurred and darkened. The
+    # marketplace card shows only a strip about 2.7 times as wide as it is
+    # tall from the vertical middle, and websites crop to 16:9, so the still
+    # is centered.
+    session = ROOT / "demo/session.png"
+    shutil.copy(session, output / "session.png")
+    still_w, still_h = png_size(session)
+    card_w, card_h = round(still_w * 2.6), round(still_h * 2.6)
+    layout = [dict(file="session.png", x=(2560 - card_w) // 2, y=(1600 - card_h) // 2,
+                   width=card_w, height=card_h, radius=28)]
     print("layout", layout, file=sys.stderr)
     env.update(QT_QPA_PLATFORM=f"offscreen:configfile={work / 'compose.json'}", QT_SCALE_FACTOR="1",
                MPRIS_MODE="compose", MPRIS_WALLPAPER=WALLPAPER, MPRIS_LAYOUT=json.dumps(layout))

@@ -314,7 +314,7 @@ ShellRoot {
         layer.enabled: true
         layer.effect: MultiEffect { blurEnabled: true; blurMax: 32; blur: 0.8 }
       }
-      Rectangle { anchors.fill: parent; color: "#9e000000" }
+      Rectangle { anchors.fill: parent; color: "#cc000000" }
       Repeater {
         model: host.composing ? JSON.parse(Quickshell.env("MPRIS_LAYOUT")) : []
         Item {
@@ -513,12 +513,6 @@ ShellRoot {
       wide.widget.close()
       return JSON.stringify({ page: wide.widget.page, opened: wide.widget.opened,
         ticking: wide.widget.timelineTicking })
-    }
-    function widgetGeometry(): string {
-      var w = wide.widget
-      var p = w.mapToItem(null, 0, 0)
-      return JSON.stringify({ x: p.x, width: w.width, barWidth: wideWindow.width,
-        compactClockX: narrow.clockX })
     }
     function grab(which: string, path: string): string {
       var item = which === "wide" ? wide : which === "narrow" ? narrow
