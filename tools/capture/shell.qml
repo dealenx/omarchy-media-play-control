@@ -242,6 +242,8 @@ ShellRoot {
       art: w.albumArtVisible, labelVisible: w.labelVisible, opened: w.opened,
       page: w.page, albumOnly: w.albumArtOnly, playerSummary: w.playerSummary,
       showProgress: w.showProgress, seekable: w.seekable,
+      // The artwork: a round disc that turns only while the track plays.
+      artShape: "circle", artSpinning: w.artSpinning, artAngle: w.artDisc ? Math.round(w.artDisc.rotation) : 0,
       // Hit areas must cover the whole bar column, not just the artwork.
       barSize: w.barSize,
       clickTargets: strip.clickTargets.length,
@@ -372,6 +374,12 @@ ShellRoot {
     function setPlaying(value: bool): string {
       playingService.playing = value
       return JSON.stringify({ playing: playingService.playing })
+    }
+    // The shell-wide switch behind `omarchy toggle animations`; the spin has
+    // to obey it like every other animation in the shell.
+    function setReduceMotion(value: bool): string {
+      Commons.Style.reduceMotion = value
+      return JSON.stringify(state(wide))
     }
     function setIdle(): string {
       playingService.title = ""

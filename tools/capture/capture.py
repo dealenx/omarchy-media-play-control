@@ -151,6 +151,30 @@ def capture_all(work, env, shell, plugin, output):
         heights = wide["clickTargetHeights"]
         assert heights and all(h >= wide["barSize"] for h in heights), (heights, wide)
         print("click targets", wide["clickTargets"], heights, file=sys.stderr)
+        # The artwork is a disc that turns only while the track plays. Sample
+        # the angle twice with real time in between: an animation that is
+        # merely scheduled shows the same number, a paused one does too.
+        assert wide["artShape"] == "circle" and wide["artSpinning"], wide
+        first = json.loads(call("states"))["wide"]["artAngle"]
+        time.sleep(1.2)
+        second = json.loads(call("states"))["wide"]["artAngle"]
+        assert second != first, (first, second)
+        print("art angle", first, "->", second, file=sys.stderr)
+        # Paused, the disc holds the angle it reached instead of snapping back.
+        json.loads(call("setPlaying", "false"))
+        time.sleep(.2)
+        held = json.loads(call("states"))["wide"]
+        assert not held["artSpinning"], held
+        time.sleep(1.2)
+        still = json.loads(call("states"))["wide"]["artAngle"]
+        assert still == held["artAngle"], (held["artAngle"], still)
+        json.loads(call("setPlaying", "true"))
+        # Reduced motion is the shell-wide animation switch; the spin obeys it.
+        off = json.loads(call("setReduceMotion", "true"))
+        assert not off["artSpinning"], off
+        on = json.loads(call("setReduceMotion", "false"))
+        assert on["artSpinning"], on
+        print("art spin gated by reduceMotion", file=sys.stderr)
         # Narrow the second bar until the real adaptive layout drops
         # previous/next but keeps play/pause, artwork, and a usable label.
         for width in range(560, 853, 2):

@@ -7,6 +7,14 @@ controls, live album art, and artist/title details:
 
 `previous` · `play/pause` · `next` · `album art` · `artist — title`
 
+The cover is a disc: the artwork is masked to a circle with a hairline of the
+theme accent around it, and while a track plays it turns once every twelve
+seconds under a soft accent halo. On pause the disc holds the angle it
+reached; nothing snaps back. With no cover, or a cover Qt cannot decode, the
+music-note placeholder takes its place inside the same ring. The spin stops
+when the bar is hidden behind a fullscreen window and when animations are off
+(`omarchy toggle animations`), which is the shell's own reduced-motion switch.
+
 This is a fork of [Media Controls + Album Art](https://github.com/crmne/omarchy-mpris)
 by [Carmine Paolino](https://github.com/crmne), used under the MIT license. The
 fork renames the widget, moves the appearance settings onto their own screen
@@ -148,6 +156,10 @@ Settings live on the widget's bar entry in `shell.json` and are written through
 the shell, so they survive restarts and apply on every monitor.
 
 ## Album art
+
+The bar draws the cover as a disc: the image is masked to a circle rather than
+cropped to one, so the artwork can turn inside the round edge without losing
+its corners, and the ring and halo around it stay still.
 
 The shell never downloads album art itself. Given an `http(s)` URL, Qt's
 `Image` holds the whole response in memory before decoding it, so a cover
