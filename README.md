@@ -98,14 +98,17 @@ The widget registers the `crmne.mpris` IPC target:
 ```bash
 omarchy-shell crmne.mpris playPause
 omarchy-shell crmne.mpris seekBy -10
+omarchy-shell dealenx.media-play-control seekTo 95
 ```
 
-`playPause`, `previous`, `next`, `raise`, and `seekBy <seconds>` return `ok`
-when the active player handled the command and `unhandled` otherwise.
-`seekBy` takes a nonzero number of seconds, negative to go back, and needs a
-player that supports seeking. `status` returns JSON with `available`,
-`playing`, `player`, `artist`, `title`, `album`, `artUrl`, `canGoPrevious`,
-`canGoNext`, and `canSeek`.
+`playPause`, `previous`, `next`, `raise`, `seekBy <seconds>`, and
+`seekTo <seconds>` return `ok` when the active player handled the command and
+`unhandled` otherwise. `seekBy` takes a nonzero number of seconds, negative to
+go back. `seekTo` takes an absolute position in seconds. Both need a player that
+supports seeking and reports a track length. `status` returns JSON with
+`available`, `playing`, `player`, `artist`, `title`, `album`, `artUrl`,
+`canGoPrevious`, `canGoNext`, `canSeek`, `hasProgress`, `position`, and
+`length`; `position` and `length` are in seconds, as Quickshell reports them.
 
 ## Screenshots
 

@@ -141,7 +141,10 @@ Item {
       artUrl: artUrl,
       canGoPrevious: !!(player && player.canGoPrevious),
       canGoNext: !!(player && player.canGoNext),
-      canSeek: !!(player && player.canSeek)
+      canSeek: !!(player && player.canSeek),
+      hasProgress: Transport.hasProgress(player),
+      position: player && player.positionSupported ? Number(player.position) : 0,
+      length: player && player.lengthSupported ? Number(player.length) : 0
     }
   }
 
@@ -174,6 +177,10 @@ Item {
 
     function seekBy(seconds: real): string {
       return root.seekBy(seconds) ? "ok" : "unhandled"
+    }
+
+    function seekTo(seconds: real): string {
+      return root.seekTo(seconds) ? "ok" : "unhandled"
     }
 
     function raise(): string {

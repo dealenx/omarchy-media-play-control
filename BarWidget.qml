@@ -57,6 +57,51 @@ BarWidget {
   property bool settingsOpen: false
   readonly property bool opened: settingsOpen
 
+  // ---- Timeline -----------------------------------------------------------
+  // Quickshell caches MPRIS position and only re-reads it when asked, so the
+  // popup keeps its own playhead: a mirror that ticks while the card is open
+  // and re-anchors whenever the player reports a jump. All of it lives here
+  // rather than in Service.qml because it must stop the moment the card closes.
+  readonly property var timelinePlayer: activePlayer
+  // Seconds, like everything else the widget reads from MprisPlayer: MPRIS on
+  // the bus speaks microseconds, Quickshell divides that for us.
+  readonly property real reportedLength: timelinePlayer && timelinePlayer.lengthSupported === true
+    ? Number(timelinePlayer.length) : 0
+  // Firefox's MPRIS extension drops `mpris:length` from the metadata after a
+  // seek and only publishes it again on the next track change, which would make
+  // the progress bar vanish mid-song. The last length the same track reported is
+  // kept for exactly that case; a new track clears it.
+  property real rememberedLength: 0
+  property string rememberedLengthTrackKey: ""
+  readonly property real trackLength: reportedLength > 0 ? reportedLength : rememberedLength
+  // Same condition as Transport.hasProgress, but against the length this widget
+  // is actually drawing with, including the remembered one.
+  readonly property bool showProgress: !!(timelinePlayer
+    && timelinePlayer.positionSupported === true
+    && trackLength > 0)
+  readonly property bool seekable: !!(timelinePlayer && timelinePlayer.canSeek === true && showProgress)
+  readonly property string timelineState: timelinePlayer
+    ? (timelinePlayer.isPlaying ? "playing" : "paused") : "idle"
+  // Observable so the capture can prove the playhead stops with the card
+  // instead of ticking every second behind a closed popup.
+  readonly property bool timelineTicking: timelineTimer.running
+  property real livePosition: 0
+  property real anchorSeconds: 0
+  property real anchorMillis: 0
+  property real lastReportedSeconds: -1
+  // Set right after a seek: the player may need a moment before it reports the
+  // new position, and the mirror must not snap back to the old one meanwhile.
+  property real seekGraceUntil: 0
+  property bool scrubbing: false
+  property string timelineTrackKey: ""
+  // How many readings in a row the player reported as position 0 while
+  // claiming to play. Browsers do this after a seek (Firefox's MPRIS
+  // extension never recovers until the track changes), and a mirror that
+  // obeys them turns into a dead slider pinned at the start. Two consecutive
+  // zeroes with playback running and time passing mean the player's clock is
+  // broken, not that the track restarted.
+  property int zeroReadings: 0
+
   visible: hasMedia
   implicitWidth: {
     if (!hasMedia) return 0
@@ -118,6 +163,11 @@ BarWidget {
       + (includeArt ? artSize : 0)
       + (includeLabel ? labelWidth : 0)
       + Math.max(0, count - 1) * contentSpacing
+  // ---- Timeline -----------------------------------------------------------
+
+  function timelineKey(player) {
+    if (!player) return ""
+    return String(player.trackTitle || "") + "\u0000" + String(player.trackArtist || "")
   }
 
   // Omarchy currently anchors its left, center, and right bar groups
@@ -359,12 +409,7 @@ BarWidget {
         width: settingsScroll.width
         spacing: Style.space(10)
 
-        Text {
           text: "NOW PLAYING"
-          color: root.bar ? root.bar.foreground : Commons.Color.foreground
-          font.family: root.bar ? root.bar.fontFamily : Style.font.family
-          font.pixelSize: Style.font.subtitle
-          font.bold: true
         }
 
         Text {
