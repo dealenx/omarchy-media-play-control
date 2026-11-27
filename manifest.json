@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "crmne.mpris",
-  "name": "Media Controls + Album Art",
-  "version": "1.2.0",
-  "author": "Carmine Paolino",
+  "id": "dealenx.media-play-control",
+  "name": "Media play control",
+  "version": "1.0.0",
+  "author": "dealenx (fork of Carmine Paolino's omarchy-mpris)",
   "license": "MIT",
   "description": "Media controls for the Omarchy bar with live album art, now-playing details, and previous/play-pause/next buttons for Spotify and other players.",
   "kinds": [
@@ -16,14 +16,16 @@
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {
-    "displayName": "Media controls + album art",
+    "displayName": "Media play control",
     "description": "Album art, now-playing details, and previous/play-pause/next controls.",
     "category": "Media",
     "allowMultiple": false,
     "defaultSection": "right",
     "defaults": {
       "adaptiveLayout": true,
+      "albumArtOnly": false,
       "albumArtSize": 18,
+      "hideWhenIdle": false,
       "maxCharacters": 48,
       "maxLabelWidth": 300,
       "showAlbumArt": true,
@@ -40,6 +42,13 @@
         "defaultValue": true
       },
       {
+        "key": "albumArtOnly",
+        "type": "boolean",
+        "label": "Album art only",
+        "description": "Show only the album artwork in the bar, without label or controls.",
+        "defaultValue": false
+      },
+      {
         "key": "albumArtSize",
         "type": "integer",
         "label": "Album art size",
@@ -48,6 +57,13 @@
         "max": 22,
         "step": 1,
         "defaultValue": 18
+      },
+      {
+        "key": "hideWhenIdle",
+        "type": "boolean",
+        "label": "Hide when nothing plays",
+        "description": "Hide the widget from the bar when no player has media.",
+        "defaultValue": false
       },
       {
         "key": "maxCharacters",

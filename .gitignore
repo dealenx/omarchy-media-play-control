@@ -1,2 +1,7 @@
 __pycache__/
 *.pyc
+
+# Local AI tooling: skills and the plan file are per-machine, not shipped.
+.agents/
+.ai-factory/
+.ai-factory.json
