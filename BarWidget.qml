@@ -54,6 +54,9 @@ BarWidget {
   }
   readonly property int buttonWidth: Style.space(20)
   readonly property int contentSpacing: Style.space(4)
+  // Extra room between the disc and the label. The disc is round and its ring
+  // reaches past its own box, so the usual 4px gap reads as none at all.
+  readonly property int artLabelGap: Style.space(2)
   readonly property int horizontalPadding: Style.space(12)
   readonly property int preferredLabelWidth: Math.min(maxLabelWidth, Math.ceil(label.implicitWidth))
   readonly property int minimumAdaptiveLabelWidth: Math.min(preferredLabelWidth, Style.space(80))
@@ -64,6 +67,7 @@ BarWidget {
     horizontalPadding: horizontalPadding,
     buttonWidth: buttonWidth,
     contentSpacing: contentSpacing,
+    artLabelGap: artLabelGap,
     artSize: artSize,
     barSize: barSize,
     preferredLabelWidth: preferredLabelWidth,
@@ -629,8 +633,10 @@ BarWidget {
       id: artContainer
       // The clickable column is the bar's full height; the artwork inside it
       // stays artSize and centred, so the pointer does not have to land on an
-      // 18px square in a 26px bar.
-      width: root.artSize
+      // 18px square in a 26px bar. With a label beside it the column carries
+      // the extra art-to-label gap too, since the disc is anchored left and
+      // the slack has to fall on the side the text is on.
+      width: root.artSize + (root.labelVisible ? root.artLabelGap : 0)
       height: parent.height
       visible: root.albumArtVisible
 

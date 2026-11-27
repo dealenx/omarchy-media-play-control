@@ -247,6 +247,8 @@ ShellRoot {
       artAngle: w.artDisc ? Math.round(w.artDisc.rotation) : 0,
       // Which artwork the slot is drawing: the cover, or the note in its place.
       artKind: w.coverShown ? "cover" : "note",
+      // Breathing room between the disc and the text, in real geometry.
+      artLabelGap: w.artLabelGap,
       // Hit areas must cover the whole bar column, not just the artwork.
       barSize: w.barSize,
       clickTargets: strip.clickTargets.length,

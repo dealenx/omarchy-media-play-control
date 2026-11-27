@@ -308,6 +308,9 @@ def capture_all(work, env, shell, plugin, output):
         uncovered = json.loads(call("states"))["wide"]
         assert uncovered["visible"] and uncovered["artSpinning"], uncovered
         assert uncovered["artKind"] == "note", uncovered
+        # The text must not touch the disc: the row's 4px gap alone reads as
+        # none next to a round edge that pokes past its own box.
+        assert wide["artLabelGap"] >= 2, wide
         print("uncovered note spinning", file=sys.stderr)
         grab(call, "wide", output / "bar-nocover.png")
         json.loads(call("setPlaying", "false"))

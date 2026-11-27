@@ -12,6 +12,7 @@ TestCase {
       horizontalPadding: 12,
       buttonWidth: 20,
       contentSpacing: 4,
+      artLabelGap: 2,
       artSize: 18,
       barSize: 26,
       preferredLabelWidth: 200,
@@ -31,8 +32,8 @@ TestCase {
   }
 
   function fullWidth(state) {
-    // prev + play + next + art + label floor
-    return 12 + 3 * 20 + 18 + 80 + 4 * 4
+    // prev + play + next + art + label floor, four gaps plus the art/label one
+    return 12 + 3 * 20 + 18 + 80 + 4 * 4 + 2
   }
 
   function test_albumArtOnlyKeepsArtworkWidthAtAnyBudget() {
@@ -110,6 +111,18 @@ TestCase {
       verify(Layout.width(state, stage) <= budget,
         "budget " + budget + " stage " + stage + " width " + Layout.width(state, stage))
     }
+  }
+
+  function test_artToLabelGapOnlyAppliesWhenBothShow() {
+    var both = base()
+    var coverOnly = base({ hasLabel: false })
+    var labelOnly = base({ showAlbumArt: false })
+    compare(Layout.widthFor(both, 0, true, true, 100), 12 + 18 + 100 + 4 + 2)
+    compare(Layout.widthFor(coverOnly, 0, true, false, 100), 12 + 18)
+    compare(Layout.widthFor(labelOnly, 0, false, true, 100), 12 + 100)
+    // The old three-argument arithmetic stays valid for callers without the key.
+    compare(Layout.widthFor(base({ artLabelGap: undefined }), 0, true, true, 100),
+      12 + 18 + 100 + 4)
   }
 
   function test_missingLabelLeavesNoGap() {

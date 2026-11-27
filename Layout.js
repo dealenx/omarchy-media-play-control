@@ -18,7 +18,8 @@
 var HIDDEN_STAGE = 5
 
 // `state` is a plain object of geometry and switches, built by the widget:
-//   horizontalPadding, buttonWidth, contentSpacing, artSize, barSize,
+//   horizontalPadding, buttonWidth, contentSpacing, artLabelGap,
+//   artSize, barSize,
 //   preferredLabelWidth, minimumLabelWidth, adaptiveWidthBudget,
 //   hasLabel, hasMedia, showAlbumArt, showControls, showSeekControls,
 //   adaptiveLayout, albumArtOnly, vertical
@@ -35,7 +36,9 @@ function minimalHitWidth(state) {
 }
 
 // Total width of `state` when the widget shows `buttons` transport buttons,
-// plus optional artwork and label.
+// plus optional artwork and label. Artwork and label need a little more room
+// between them than two controls do: the disc is round and its ring reaches
+// past its own box, so the text would otherwise look glued to it.
 function widthFor(state, buttons, includeArt, includeLabel, labelWidth) {
   var count = buttons + (includeArt ? 1 : 0) + (includeLabel ? 1 : 0)
   if (count === 0) return 0
@@ -44,6 +47,7 @@ function widthFor(state, buttons, includeArt, includeLabel, labelWidth) {
     + (includeArt ? state.artSize : 0)
     + (includeLabel ? labelWidth : 0)
     + Math.max(0, count - 1) * state.contentSpacing
+    + (includeArt && includeLabel ? (state.artLabelGap || 0) : 0)
 }
 
 // Album-art-only and idle share one shape: artwork and nothing else.
