@@ -159,6 +159,9 @@ BarWidget {
   // The turning item itself, for the capture host: reading `disc.rotation`
   // through a bound property would re-evaluate a binding on every frame.
   readonly property var artDisc: disc
+  // Only a decoded cover gets the disc treatment: the circle, the ground, the
+  // ring, the halo. With no cover the slot is just the accent music note.
+  readonly property bool coverShown: artSource !== "" && cover.status === Image.Ready
   // Why the spin is or is not running, for the log line below. Reads the
   // first gate that fails, in the same order as `artSpinning`. A function,
   // not a property: inside `onArtSpinningChanged` a sibling binding that
@@ -639,23 +642,25 @@ BarWidget {
         anchors.left: parent.left
 
         // A soft accent halo behind the disc, only while the track plays. It
-        // reaches 2px past the artwork into the row's 4px gaps, so it never
-        // touches its neighbours.
+        // reaches 3px past the artwork, one pixel short of the row's 4px gap
+        // on either side, so it never touches its neighbours, and the 2px ring
+        // sits inside it, leaving a band of haze around the bright edge.
         Rectangle {
           anchors.fill: parent
-          anchors.margins: -Style.space(2)
+          anchors.margins: -Style.space(3)
           antialiasing: true
           radius: width / 2
-          color: Commons.Util.alpha(Commons.Color.accent, 0.16)
-          visible: root.playing
+          color: Commons.Util.alpha(Commons.Color.accent, 0.18)
+          visible: root.coverShown && root.playing
         }
 
-        // The disc's own ground: what shows through a transparent or missing
-        // cover, and the ring's backing where the cover is opaque.
+        // The disc's own ground: what shows through a cover with transparent
+        // pixels. Nothing at all without a cover, which is the bare note.
         Rectangle {
           anchors.fill: parent
           antialiasing: true
           radius: width / 2
+          visible: root.coverShown
           color: root.bar ? Style.normalFillFor(root.bar.barForeground, Commons.Color.accent) : "transparent"
         }
 
@@ -666,7 +671,7 @@ BarWidget {
         // avatar photographs get their shape.
         Item {
           anchors.fill: parent
-          layer.enabled: root.artSource !== "" && cover.status === Image.Ready
+          layer.enabled: root.coverShown
           // Render the layer at device resolution. Without this Qt rasterizes
           // an 18px artwork and scales the result, which stair-steps the round
           // edge on every scaled display.
@@ -710,6 +715,20 @@ BarWidget {
               onStatusChanged: if (status === Image.Error)
                 console.debug("[media-play-control.art]", "cover failed to load")
             }
+
+            // No cover at all, or one Qt could not decode: the accent music
+            // note is the whole artwork — no ground, no ring, no halo, no
+            // circle. It sits inside the turning item, so it turns at exactly
+            // the cover's speed while the track plays and freezes on pause.
+            OpticalGlyph {
+              anchors.fill: parent
+              visible: root.artSource === "" || cover.status === Image.Error
+              text: "󰝚"
+              color: Commons.Util.alpha(Commons.Color.accent, root.playing ? 1.0 : 0.55)
+              fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+              fontSize: Style.bar.iconFont
+              paintedSize: Math.min(Style.bar.iconSize, root.artSize - Style.space(4))
+            }
           }
         }
 
@@ -728,30 +747,19 @@ BarWidget {
           color: "black"
         }
 
-        // The highlight: one hairline of the theme accent, brighter while the
-        // track plays and dimmed when it does not. It sits outside the masked
-        // layer, so it never turns with the cover.
+        // The highlight: a two-pixel ring of the theme accent, brighter while
+        // the track plays and dimmed when it does not. It sits outside the
+        // masked layer, so it never turns with the cover, and it grows
+        // outwards by its own width, so the ring never eats into the cover.
         Rectangle {
           anchors.fill: parent
+          anchors.margins: -Style.space(2)
           radius: width / 2
           antialiasing: true
+          visible: root.coverShown
           color: "transparent"
-          border.width: Style.spacing.hairline
+          border.width: Style.space(2)
           border.color: Commons.Util.alpha(Commons.Color.accent, root.playing ? 0.55 : 0.28)
-        }
-
-        // Centered by its ink at the bar's icon size, as Omarchy's own bar
-        // icons are, inside the smallest artwork too.
-        OpticalGlyph {
-          anchors.fill: parent
-          // No cover at all, or one Qt could not decode: the note is the
-          // artwork. Drawn above the mask and the ring, unrotated.
-          visible: root.artSource === "" || cover.status === Image.Error
-          text: "󰝚"
-          color: root.bar ? root.bar.barForeground : Commons.Color.foreground
-          fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
-          fontSize: Style.bar.iconFont
-          paintedSize: Math.min(Style.bar.iconSize, root.artSize - Style.space(4))
         }
       }
 
